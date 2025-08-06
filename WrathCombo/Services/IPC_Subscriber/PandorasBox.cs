@@ -1,6 +1,7 @@
 #region
 
 using System;
+using System.Collections.Generic;
 using Dalamud.Plugin.Ipc;
 using ECommons.DalamudServices;
 using ECommons.Logging;
@@ -12,7 +13,7 @@ namespace WrathCombo.Services.IPC_Subscriber;
 internal sealed class PandorasBoxIPC(
     string? pluginName = null,
     Version? validVersion = null)
-    : ReusableIPC(pluginName ?? "PandorasBox", validVersion ?? new Version(1, 0, 0, 0))
+    : ReusableIPC(pluginName ?? "PandorasBox", validVersion ?? new Version(1, 6, 3, 13))
 {
     private ICallGateSubscriber<string, bool>? _getFeatureEnabled;
     private ICallGateSubscriber<string, string, bool>? _getConfigEnabled;
@@ -62,28 +63,72 @@ internal sealed class PandorasBoxIPC(
     }
 
     /// <summary>
-    /// Checks if any action-related features that could conflict with WrathCombo are enabled
+    /// Gets all enabled action-related features that could conflict with WrathCombo
     /// </summary>
-    public bool HasActionConflicts()
+    public List<string> GetEnabledActionConflicts()
     {
-        if (!IsEnabled) return false;
+        var conflicts = new List<string>();
+        if (!IsEnabled) return conflicts;
 
         try
         {
             // Check for features that directly use ActionManager->UseAction() which could interfere
-            return GetFeatureEnabled("Auto Tank Stance") ||
-                   GetFeatureEnabled("Auto Peloton") ||
-                   GetFeatureEnabled("Auto Sprint") ||
-                   GetFeatureEnabled("Auto Fairy") ||
-                   GetFeatureEnabled("Auto Mount Combat") ||
-                   GetFeatureEnabled("Auto Cordial") ||
-                   GetFeatureEnabled("Auto Collect");
+            string[] actionFeatures = 
+            [
+                "Auto Tank Stance",
+                "Auto Peloton",
+                "Auto Sprint",
+                "Auto Fairy",
+                "Auto Mount Combat",
+                "Auto Cordial",
+                "Auto Collect"
+            ];
+
+            foreach (var feature in actionFeatures)
+            {
+                if (GetFeatureEnabled(feature))
+                    conflicts.Add(feature);
+            }
         }
         catch (Exception e)
         {
-            PluginLog.Warning($"[ConflictingPlugins] [{PluginName}] HasActionConflicts failed: {e.Message}");
-            return false;
+            PluginLog.Warning($"[ConflictingPlugins] [{PluginName}] GetEnabledActionConflicts failed: {e.Message}");
         }
+
+        return conflicts;
+    }
+
+    /// <summary>
+    /// Gets all enabled targeting-related features that could conflict with WrathCombo
+    /// </summary>
+    public List<string> GetEnabledTargetingConflicts()
+    {
+        var conflicts = new List<string>();
+        if (!IsEnabled) return conflicts;
+
+        try
+        {
+            // Check for targeting-related features that could interfere with WrathCombo's targeting
+            string[] targetingFeatures = 
+            [
+                "Fate Targeting Mode",
+                "Action Combat Targeting",
+                "Auto Target",
+                "Smart Targets"
+            ];
+
+            foreach (var feature in targetingFeatures)
+            {
+                if (GetFeatureEnabled(feature))
+                    conflicts.Add(feature);
+            }
+        }
+        catch (Exception e)
+        {
+            PluginLog.Warning($"[ConflictingPlugins] [{PluginName}] GetEnabledTargetingConflicts failed: {e.Message}");
+        }
+
+        return conflicts;
     }
 
     public override void Dispose()

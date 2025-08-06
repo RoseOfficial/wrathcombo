@@ -376,7 +376,8 @@ public static class ConflictingPluginsChecks
 
     internal sealed class PandorasBoxCheck() : ConflictCheck(new PandorasBoxIPC())
     {
-        public string[] ConflictingFeatures = [];
+        public string[] ConflictingActionFeatures = [];
+        public string[] ConflictingTargetingFeatures = [];
         protected override PandorasBoxIPC IPC => (PandorasBoxIPC)_ipc;
 
         public override void CheckForConflict()
@@ -384,44 +385,26 @@ public static class ConflictingPluginsChecks
             if (!ThrottlePassed())
                 return;
 
-            var conflictingFeatures = new List<string>();
+            // Get all enabled conflicting features in one pass (optimized)
+            var actionConflicts = IPC.GetEnabledActionConflicts();
+            var targetingConflicts = IPC.GetEnabledTargetingConflicts();
 
-            // Check for action-related features that could interfere with WrathCombo
-            if (IPC.HasActionConflicts())
+            ConflictingActionFeatures = actionConflicts.ToArray();
+            ConflictingTargetingFeatures = targetingConflicts.ToArray();
+
+            if (ConflictingActionFeatures.Length > 0 || ConflictingTargetingFeatures.Length > 0)
             {
-                // Get the specific features that are enabled and could conflict
-                if (IPC.GetFeatureEnabled("Auto Tank Stance"))
-                    conflictingFeatures.Add("Auto Tank Stance");
-                if (IPC.GetFeatureEnabled("Auto Peloton"))
-                    conflictingFeatures.Add("Auto Peloton");
-                if (IPC.GetFeatureEnabled("Auto Sprint"))
-                    conflictingFeatures.Add("Auto Sprint");
-                if (IPC.GetFeatureEnabled("Auto Fairy"))
-                    conflictingFeatures.Add("Auto Fairy");
-                if (IPC.GetFeatureEnabled("Auto Mount Combat"))
-                    conflictingFeatures.Add("Auto Mount Combat");
-                if (IPC.GetFeatureEnabled("Auto Cordial"))
-                    conflictingFeatures.Add("Auto Cordial");
-                if (IPC.GetFeatureEnabled("Auto Collect"))
-                    conflictingFeatures.Add("Auto Collect");
-
-                if (conflictingFeatures.Count > 0)
-                {
-                    ConflictingFeatures = conflictingFeatures.ToArray();
-                    PluginLog.Verbose(
-                        $"[ConflictingPlugins] [{Name}] {ConflictingFeatures.Length} " +
-                        $"conflicting features enabled: {string.Join(", ", ConflictingFeatures)}");
-                    MarkConflict();
-                }
-                else
-                {
-                    ConflictingFeatures = [];
-                    Conflicted = false;
-                }
+                var allConflicts = new List<string>();
+                allConflicts.AddRange(ConflictingActionFeatures);
+                allConflicts.AddRange(ConflictingTargetingFeatures);
+                
+                PluginLog.Verbose(
+                    $"[ConflictingPlugins] [{Name}] {allConflicts.Count} " +
+                    $"conflicting features enabled: {string.Join(", ", allConflicts)}");
+                MarkConflict();
             }
             else
             {
-                ConflictingFeatures = [];
                 Conflicted = false;
             }
         }
