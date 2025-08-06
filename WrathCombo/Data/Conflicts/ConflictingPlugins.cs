@@ -308,6 +308,16 @@ public static class ConflictingPlugins
 
         #endregion
 
+        #region PandorasBox
+
+        if (ConflictingPluginsChecks.PandorasBox.Conflicted)
+            conflicts = conflicts.Append(new Conflict(
+                    "Pandora's Box", ConflictType.Settings,
+                    $"Auto features enabled: {string.Join(", ", ConflictingPluginsChecks.PandorasBox.ConflictingFeatures)}"))
+                .ToArray();
+
+        #endregion
+
         return conflicts.Length > 0;
     }
 

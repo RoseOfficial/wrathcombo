@@ -1,6 +1,7 @@
 ﻿#region
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using ECommons.DalamudServices;
 using ECommons.Logging;
@@ -33,6 +34,7 @@ public static class ConflictingPluginsChecks
         ReAction.CheckForConflict();
         ReActionEx.CheckForConflict();
         MOAction.CheckForConflict();
+        PandorasBox.CheckForConflict();
 
         Svc.Framework.RunOnTick(RunChecks!, TS.FromSeconds(4.11));
     };
@@ -43,6 +45,7 @@ public static class ConflictingPluginsChecks
     internal static ReActionCheck ReAction { get; } = new();
     internal static ReActionCheck ReActionEx { get; } = new(true);
     internal static MOActionCheck MOAction { get; } = new();
+    internal static PandorasBoxCheck PandorasBox { get; } = new();
 
     public static void Begin()
     {
@@ -64,6 +67,7 @@ public static class ConflictingPluginsChecks
         ReAction.Dispose();
         ReActionEx.Dispose();
         MOAction.Dispose();
+        PandorasBox.Dispose();
     }
 
     internal sealed class BossModCheck(bool reborn = false)
@@ -367,6 +371,59 @@ public static class ConflictingPluginsChecks
             // ReSharper disable once InvertIf
             if (!conflictedThisCheck && Conflicted)
                 Conflicted = false;
+        }
+    }
+
+    internal sealed class PandorasBoxCheck() : ConflictCheck(new PandorasBoxIPC())
+    {
+        public string[] ConflictingFeatures = [];
+        protected override PandorasBoxIPC IPC => (PandorasBoxIPC)_ipc;
+
+        public override void CheckForConflict()
+        {
+            if (!ThrottlePassed())
+                return;
+
+            var conflictingFeatures = new List<string>();
+
+            // Check for action-related features that could interfere with WrathCombo
+            if (IPC.HasActionConflicts())
+            {
+                // Get the specific features that are enabled and could conflict
+                if (IPC.GetFeatureEnabled("Auto Tank Stance"))
+                    conflictingFeatures.Add("Auto Tank Stance");
+                if (IPC.GetFeatureEnabled("Auto Peloton"))
+                    conflictingFeatures.Add("Auto Peloton");
+                if (IPC.GetFeatureEnabled("Auto Sprint"))
+                    conflictingFeatures.Add("Auto Sprint");
+                if (IPC.GetFeatureEnabled("Auto Fairy"))
+                    conflictingFeatures.Add("Auto Fairy");
+                if (IPC.GetFeatureEnabled("Auto Mount Combat"))
+                    conflictingFeatures.Add("Auto Mount Combat");
+                if (IPC.GetFeatureEnabled("Auto Cordial"))
+                    conflictingFeatures.Add("Auto Cordial");
+                if (IPC.GetFeatureEnabled("Auto Collect"))
+                    conflictingFeatures.Add("Auto Collect");
+
+                if (conflictingFeatures.Count > 0)
+                {
+                    ConflictingFeatures = conflictingFeatures.ToArray();
+                    PluginLog.Verbose(
+                        $"[ConflictingPlugins] [{Name}] {ConflictingFeatures.Length} " +
+                        $"conflicting features enabled: {string.Join(", ", ConflictingFeatures)}");
+                    MarkConflict();
+                }
+                else
+                {
+                    ConflictingFeatures = [];
+                    Conflicted = false;
+                }
+            }
+            else
+            {
+                ConflictingFeatures = [];
+                Conflicted = false;
+            }
         }
     }
 
